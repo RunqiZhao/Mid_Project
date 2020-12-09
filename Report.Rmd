@@ -276,7 +276,7 @@ For property part, ***Car***, ***Realty***, ***Housing_Type*** are the fixed eff
 
 The model can be write as:  
 
-**$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{Car} * Car + \beta^{Realty} * Realty + \beta^{Housing Type} * Housing Type)$, for $i = 1,...,n$  **
+**$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{Car} * Car +  \beta^{Realty} * Realty + \beta^{CR} *Car* Realty +  \beta^{Housing Type} * Housing Type)$, for $i = 1,...,n$ **
 
 **$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{OccupationType})$,   for $j = 1,...,18$  **
 
