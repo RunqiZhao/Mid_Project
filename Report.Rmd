@@ -1,6 +1,6 @@
 ---
 title: "How property and family affect people's loan application?"
-author: "Ricky"
+author: "Runqi(Ricky) Zhao"
 date: "12/7/2020"
 geometry: "left=2cm,right=2cm,top=1cm,bottom=2cm"
 output:
@@ -256,15 +256,13 @@ All variables except Occupation Type have small number of missing values (less t
 ## 2) Exploratory data analysis
 
 First look at the application numbers of and the average risk grades of different occupation types(Figure 1). I noticed that there is difference between different working tpyes, and for the ***Low Skill Labors*** has lower application numbers but has the highest average grade.
-```{r echo=FALSE,fig.show='hold',out.height='80%',out.width = '45%', fig.align = 'center',fig.cap = "Application Numbers and Target under different Occupation Type"}
+```{r echo=FALSE,fig.show='hold',out.width = '48%', fig.align = 'center',fig.cap = "Application Numbers and Target under different Occupation Type"}
 p_Och
 p_Occ
 ```
 
-<br> <br> <br>
-
-Then come to take a look at the risk grades of different Family Status and Accompany Situations. (Figure 2)
-```{r echo=FALSE, out.height='90%',out.width = '80%',fig.align = 'center',fig.cap = "Target of different Family Status and Accompany"}
+Then comes to take a look at the risk grades of different Family Status and Accompany Situations. (Figure 2)
+```{r echo=FALSE, out.width = '90%',fig.align = 'center',fig.cap = "Target of different Family Status and Accompany"}
 p_Fam
 ```
 
@@ -278,17 +276,17 @@ For property part, ***Car***, ***Realty***, ***Housing_Type*** are the fixed eff
 
 The model can be write as:  
 
-$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{Car} * Car + \beta^{Realty} * Realty + \beta^{Housing Type} * Housing Type)$, for $i = 1,...,n$  
+**$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{Car} * Car + \beta^{Realty} * Realty + \beta^{Housing Type} * Housing Type)$, for $i = 1,...,n$  **
 
-$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{OccupationType})$,   for $j = 1,...,18$  
+**$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{OccupationType})$,   for $j = 1,...,18$  **
 
 For family part, ***Family_Status*** is the fixed effect factors and ***Accompany*** is the random effect factor to show people's accompany situation when they submit their application.  
 
 The model can be write as:  
 
-$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{FamilyStatus} * FamilyStatus)$, for $i = 1,...,n$  
+**$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{FamilyStatus} * FamilyStatus)$, for $i = 1,...,n$  **
 
-$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{Accompany})$,  for $j = 1,...,7$  
+**$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{Accompany})$,  for $j = 1,...,7$  **
 
 ## 4) Model Checking  
 To fit with *stan_glmer*, I took a subset of the whole dataset, sampled for 10,000 recordings randomly. To check the fitted models, plot the residuals for these two models(Figure 3).  
@@ -306,7 +304,7 @@ binnedplot(x = pred_f , y = residuals(Family.1),
     cex.pts=0.8, col.pts=1, col.int="gray")
 ```
 
-They looks fit well. Almost all of the points are in the line.
+They look fitting well. Almost all of the points are in the line.
  
 # 4. Results  
 First, look at the estimate results of Occupations models(Figure 4).
@@ -330,7 +328,7 @@ For the accompany, we can find that there is no obvious difference between accom
 
 # 5. Discussion
 
-First, from the results, *the occupations showed different effects on their risk evaluation, while accompany does not.* Also, we can guess that loan company is *more welcome Cleaning staff, Private service staff and Secretaries who live in co-op apartment, own their car. Also company may more open to married people and widow. *
+First, from the models' results, ***the occupations showed different effects on their risk evaluation, while accompany does not.*** Also, we can guess that loan company is ***more welcome Cleaning staff, Private service staff and Secretaries who live in co-op apartment, own their car. Also company may more open to married people and widow. ***
 
 With the exploration analysis, we can find the **Low skill laborers** have highest average grade, the drivers have the second. This is consist to our model results. But the lowest average grade, the **Accountants**, does not show a competitive strength in the model. Also, from the plot of target under different Family_Status and Accompany, there shows difference between groups, but the model does not give a variety.  
 
