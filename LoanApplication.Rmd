@@ -1,0 +1,560 @@
+---
+title: "Loans"
+author: "Ricky"
+date: "11/23/2020"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    theme: cerulean
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,out.width="0.9\\linewidth",dev="png",fig.align  = 'center')
+warning = F
+message = F
+pacman::p_load(
+ggplot2,
+VIM,
+corrplot,
+# knitr,
+arm,
+# data.table,
+# foreign,
+gridExtra,
+# car,
+# stringr,
+# rstan,
+rstanarm,
+lme4,
+magrittr,
+# zoo,
+# plyr,
+# reshape2,
+# tidyverse,
+dplyr,
+bayesplot
+)
+```
+
+# Load data
+
+## App_train
+```{r eval=FALSE, include=FALSE}
+application <- read.csv("application_train.csv", head = T)
+```
+
+## Missing Values
+```{r eval=FALSE, include=FALSE}
+
+# delete NA columes
+N <- rep(NA,122)
+for (i in 1:122){
+  N[i]  <- sum(is.na(application[,i]))
+}
+app <- application[,which(N <300)]
+# colnames(app)
+
+# still have ""
+app[app == ""] <- NA
+
+N2 <- rep(NA,65)
+for (i in 1:65){
+  N2[i]  <- sum(is.na(app[,i]))
+}
+
+# remove some incomplete rows
+appdf <- app[,c(which(N2 <300),12,28)]
+
+# colnames(appdf)
+
+# Check
+# N3 <- rep(NA,59)
+# for (i in 1:59){
+#   N3[i]  <- sum(is.na(app[,i]))
+# }
+```
+
+## Select variables
+Select three directions.
+```{r eval=FALSE, include=FALSE}
+appdf <- appdf[,c(1:39,60:61)]
+# colnames(appdf)
+```
+
+```{r eval=FALSE, include=FALSE}
+write.csv(appdf, file = "appdf.csv", row.names = F)
+```
+
+```{r}
+appdf <- read.csv("appdf.csv", head = T)
+```
+
+```{r}
+# ID 1
+# Loans: 2:3, 9:11
+# Applier: 4,13
+# Family: 7,40,14,27
+# Money & Word: 5:6, 8, 12, 15, 38, 41
+
+app_loan <- appdf[,c(2:3,9:11)]
+app_loan <- na.omit(app_loan)
+app_applier <- appdf[,c(2:3,4,13)]
+app_applier <- na.omit(app_applier)
+app_family <- appdf[,c(2:3,7,40,14,27)]
+app_family <- na.omit(app_family)
+app_mw <- appdf[,c(2:3, 5:6, 8, 12, 15, 38, 41)]
+app_mw  <- na.omit(app_mw)
+```
+
+# Exploratory data analysis
+
+## Loan
+```{r}
+# app_loan
+
+# corrplot
+res_cor <- cor(app_loan[,c(1,3:5)])
+# corrplot(corr=res_cor)
+
+colnames(app_loan) <- c("Target","Contract_Type","Credit","Annuity","Price")
+
+# Target_hist
+ggplot(app_loan, aes(x = Target)) + geom_bar()
+
+ggplot(app_loan, aes(x = Target, fill = Contract_Type)) + geom_bar()
+
+
+# Credit
+ggplot(app_loan, aes(x = Credit)) + 
+  # geom_histogram(aes(y=..density..), binwidth=50000, colour="black", fill="white") +
+  geom_density(alpha=.1, fill="lightblue") +
+  geom_vline(aes(xintercept=mean(Credit, na.rm=T)),
+             color="red", linetype="dashed", size=1)
+
+# ANNUITY
+ggplot(app_loan, aes(x = Annuity)) + 
+  # geom_histogram(aes(y=..density..), binwidth=3000, colour="black", fill="white") +
+  geom_density(alpha=.1, fill="lightblue") +
+  geom_vline(aes(xintercept=mean(Annuity, na.rm=T)),
+             color="red", linetype="dashed", size=1)
+
+# GOODS_PRICE
+ggplot(app_loan, aes(x = Price)) + 
+  # geom_histogram(aes(y=..density..), binwidth=30000, colour="black", fill="white") +
+  geom_density(alpha=.1, fill="lightblue") +
+  geom_vline(aes(xintercept=mean(Price, na.rm=T)),
+             color="red", linetype="dashed", size=1)
+
+
+```
+
+## Applier
+```{r}
+# app_applier
+colnames(app_applier) <- c("Target","Contract_Type","Gender","Education")
+
+# Gender
+ggplot(app_applier, aes(x = Target, fill = Gender)) + geom_bar()
+
+# Education
+p_Edu <- app_applier %>% group_by(Education) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Education,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Education") +   ylab("Target") + 
+  ggtitle("Target of different Education") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_Edu
+```
+
+## Family
+```{r}
+# app_family
+colnames(app_family) <- 
+  c("Target","Contract_Type","Children_Num","Accompany","Family_Status","Family_Members")
+
+# Accompany
+p_Acc <- app_family %>% group_by(Accompany) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Accompany,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Accompany") +   ylab("Target") + 
+  ggtitle("Target of different Accompany") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_Acc
+
+# Family_Status
+p_FamS <- app_family %>% group_by(Family_Status) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Family_Status,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Family_Status") +   ylab("Target") + 
+  ggtitle("Target of different Family Status") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_FamS
+
+# both
+p_Fam <- app_family %>% group_by(Family_Status, Accompany) %>%
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Accompany,y=mean, color = Accompany),size=4) + 
+  theme_bw() + 
+  xlab("Accompany") +   ylab("Target") + 
+  ggtitle("Target under different Family Status and Accompany") + 
+  facet_wrap(~ Family_Status) +
+  theme(axis.text.x = element_text(angle = 20, hjust = 0.5, vjust = 0.5))
+p_Fam
+
+# p_Fam <- app_family %>% group_by(Family_Status, Accompany) %>% 
+#   summarize(mean=mean(Target)) %>% ungroup() %>%
+#   ggplot() + 
+#   geom_point(aes(x=Family_Status,y=mean, color = Family_Status),size=4) + 
+#   theme_bw() + 
+#   xlab("Family_Status") +   ylab("Target") + 
+#   ggtitle("Target of different Family Status") + 
+#   facet_wrap(~ Accompany) +
+#   theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+# p_Fam
+
+```
+
+## Money and work
+```{r}
+# app_mw
+colnames(app_mw) <- 
+  c("Target","Contract_Type","Car","Realty","Total_Income","Income_Type","Housing_Type","Organization_Type","Occupation_Type")
+
+# Income_Type
+p_Inc <- app_mw %>% group_by(Income_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Income_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Income_Type") +   ylab("Target") + 
+  ggtitle("Target of different Income_Type") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_Inc
+
+# Housing_Type
+p_Hou <- app_mw %>% group_by(Housing_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Housing_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Housing_Type") +   ylab("Target") + 
+  ggtitle("Target of different Housing_Type") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_Hou
+
+# Organization_Type
+p_Org <- app_mw %>% group_by(Organization_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Organization_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Organization_Type") +   ylab("Target") + 
+  ggtitle("Target of different Organization_Type") + 
+  theme(axis.text.x = element_text(angle = 30, hjust = 0.5, vjust = 0.5))
+# p_Org
+
+# Occupation_Type
+
+ggplot(app_mw, aes(x = Occupation_Type)) + geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 0.5, vjust = 0.5))
+
+p_Occ <- app_mw %>% group_by(Occupation_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Occupation_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Occupation_Type") +   ylab("Target") + 
+  ggtitle("Target of different Occupation_Type") + 
+  theme(axis.text.x = element_text(angle = 20, hjust = 0.5, vjust = 0.5))
+p_Occ
+
+# Total income
+# ggplot(app_mw, aes(x = Total_Income)) + 
+#   geom_histogram(aes(y=..density..), binwidth=1000, colour="black", fill="white")
+
+# boxplot(app_mw$Total_Income)
+
+OutVals = boxplot(app_mw$Total_Income, plot=FALSE)$out
+income <- app_mw[which(! app_mw$Total_Income %in% OutVals),]
+
+ggplot(income, aes(x = Total_Income)) + 
+  # geom_histogram(aes(y=..density..), binwidth=18000,colour="black", fill="white") +
+  geom_density(alpha=.1, fill="lightblue") +
+  geom_vline(aes(xintercept=mean(Total_Income, na.rm=T)),
+             color="red", linetype="dashed", size=1)
+
+
+
+```
+
+# Fitting Models
+
+```{r}
+# Subset Data
+# set.seed(100)
+# appdf2 <- appdf[sample(nrow(appdf),10000),]
+# write.csv(appdf2, file = "appdf2.csv", row.names = F)
+```
+
+```{r}
+appdf2 <- read.csv("appdf2.csv", head = T)
+
+app_family2 <- appdf2[,c(2:3,7,40,14,27)]
+app_family2 <- na.omit(app_family2)
+colnames(app_family2) <- 
+  c("Target","Contract_Type","Children_Num","Accompany","Family_Status","Family_Members")
+app_mw2 <- appdf2[,c(2:3, 5:6, 8, 12, 15, 38, 41)]
+app_mw2  <- na.omit(app_mw2)
+colnames(app_mw2) <- 
+  c("Target","Contract_Type","Car","Realty","Total_Income","Income_Type","Housing_Type","Organization_Type","Occupation_Type")
+```
+
+## Family
+#Lg
+
+```{r eval=FALSE, include=FALSE}
+Family <- stan_glm(Target ~ Family_Status + Accompany, family = binomial(link="logit"), data = app_family2, refresh = 0)
+saveRDS(Family, "Family")
+```
+
+```{r eval=FALSE, include=FALSE}
+app_family2$Target <- factor(app_family2$Target)
+app_family2$Family_Status <- factor(app_family2$Family_Status)
+app_family2$Accompany <- factor(app_family2$Accompany)
+```
+
+```{r eval=FALSE, include=FALSE}
+Family.1 <- stan_glmer(Target ~ Family_Status + (1|Accompany), family = binomial(link="logit"), data = app_family2, control = list(adapt_delta = 0.99))
+saveRDS(Family.1, "Family.1")
+```
+
+
+```{r eval=FALSE, include=FALSE}
+Family.1_1 <- stan_glmer(Target ~ Accompany + (1|Family_Status), family = binomial(link="logit"), data = app_family2, control = list(adapt_delta = 0.99))
+saveRDS(Family.1_1, "Family.1_1")
+```
+
+
+```{r eval=FALSE, include=FALSE}
+app_family$Target <- factor(app_family$Target)
+app_family$Family_Status <- factor(app_family$Family_Status)
+app_family$Accompany <- factor(app_family$Accompany)
+
+Family.2 <- glmer(Target ~ Family_Status + (1|Accompany),
+                  family = binomial(link="logit"), app_family)
+saveRDS(Family.2, "Family.2")
+
+```
+
+```{r}
+# # Logistic stan model
+# Family <- readRDS("Family")
+
+# GLMM stan
+Family.1 <- readRDS("Family.1")
+
+# GLMM 
+Family.2 <- readRDS("Family.2")
+
+# fixef(Family.2)
+# ranef(Family.2)
+```
+
+# estimates
+```{r}
+#Draw out the model's simulated estimates for fixed and random effects
+sims <-  as.matrix(Family.1) 
+
+#Clean up the column names (just to make them pretty! You can also do this in the next step)
+for(i in 1:length(unique(app_family2$Accompany))) {
+  colnames(sims)[i+5]  <-  substr(x = colnames(sims)[i+5], start = 25, stop = nchar(colnames(sims)[i+5]) - 1)
+}
+colnames(sims)[13]  <-  "sigma"
+
+head(sims)
+
+```
+
+```{r}
+#Make a data frame to put in coefficients
+coefdisplay  <-  
+  data.frame(names=rep(NA,ncol(sims)),med=rep(NA,ncol(sims)),upper=rep(NA,ncol(sims)),lower=rep(NA,ncol(sims)))
+
+#Use for loops to draw out estimates and names for each variable
+for(i in 1:ncol(sims)){
+  coefdisplay$names[i]  <-  colnames(sims)[i]
+  coefdisplay$med[i]  <-  median(sims[,i])
+  coefdisplay$upper[i]  <-  median(sims[,i]) + 2*mad(sims[,i])
+  coefdisplay$lower[i]  <-  median(sims[,i]) - 2*mad(sims[,i])
+}
+
+```
+
+# Effects Plots
+```{r}
+p_fixed <- ggplot(coefdisplay[1:5,]) + 
+  aes(x=names,y=med) + geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Fixed Effects") + ylab("Estimate") + xlab("Variables") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+
+p_random  <-  ggplot(coefdisplay[6:12,]) + 
+  aes(x=names,y=med) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Random Effects") + ylab("Estimate") + xlab("Groups") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+
+estimate_f <- grid.arrange(p_fixed,p_random)
+
+```
+# Plot
+```{r}
+coralpred  <-  posterior_predict(Family.1,iter=1000)
+fit_f <- ppc_dens_overlay(coralpred[1:100,], y=app_family2$Target)
+```
+
+# Predict and redisual plot
+```{r}
+
+newpred <-  posterior_epred(Family.1, newdata=app_family2, draws=1000)
+pred_f <- mean(newpred[,1])
+for (i in 2:dim(newpred)[2]){
+  pred_f <- c(pred_w,mean(newpred[,i]))
+}
+
+
+red_f <- binnedplot(x = pred_f , y = residuals(Family.1),
+    xlab="Expected Values", ylab="Average residual", 
+    main="Binned residual plot of Family_Model", 
+    cex.pts=0.8, col.pts=1, col.int="gray")
+
+```
+
+
+
+## Working
+
+```{r eval=FALSE, include=FALSE}
+app_mw2$Target <- factor(app_mw2$Target)
+app_mw2$Car <- factor(app_mw2$Car)
+app_mw2$Realty <- factor(app_mw2$Realty)
+app_mw2$Housing_Type <- factor(app_mw2$Housing_Type)
+app_mw2$Occupation_Type <- factor(app_mw2$Occupation_Type)
+```
+
+```{r eval=FALSE, include=FALSE}
+Working.1 <- stan_glmer(Target ~ Car:Realty + Housing_Type + (1|Occupation_Type),
+                          family = binomial(link="logit"), data = app_mw2)
+saveRDS(Working.1, "Working.1")
+```
+
+```{r eval=FALSE, include=FALSE}
+Working.2 <- glmer(Target ~ Car:Realty + Housing_Type + (1|Occupation_Type),
+                          family = binomial(link="logit"), data = app_mw)
+saveRDS(Working.2, "Working.2")
+
+```
+
+```{r}
+Working.1 <- readRDS("Working.1")
+Working.2 <- readRDS("Working.2")
+
+```
+
+# estimates
+```{r}
+#Draw out the model's simulated estimates for fixed and random effects
+sims <-  as.matrix(Working.1) 
+
+#Clean up the column names (just to make them pretty! You can also do this in the next step)
+for(i in 1:length(unique(app_mw2$Occupation_Type))) {
+  colnames(sims)[i+9]  <-  substr(x = colnames(sims)[i+9], start = 31, stop = nchar(colnames(sims)[i+9]) - 1)
+}
+colnames(sims)[28]  <-  "sigma"
+
+head(sims)
+
+```
+
+```{r}
+#Make a data frame to put in coefficients
+coefdisplay  <-  
+  data.frame(names=rep(NA,ncol(sims)),med=rep(NA,ncol(sims)),upper=rep(NA,ncol(sims)),lower=rep(NA,ncol(sims)))
+
+#Use for loops to draw out estimates and names for each variable
+for(i in 1:ncol(sims)){
+  coefdisplay$names[i]  <-  colnames(sims)[i]
+  coefdisplay$med[i]  <-  median(sims[,i])
+  coefdisplay$upper[i]  <-  median(sims[,i]) + 2*mad(sims[,i])
+  coefdisplay$lower[i]  <-  median(sims[,i]) - 2*mad(sims[,i])
+}
+
+```
+
+# Effects Plots
+```{r}
+p_fixed <- ggplot(coefdisplay[1:9,]) + 
+  aes(x=names,y=med) + geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Fixed Effects") + ylab("Estimate") + xlab("Variables") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+
+p_random  <-  ggplot(coefdisplay[10:27,]) + 
+  aes(x=names,y=med) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Random Effects") + ylab("Estimate") + xlab("Groups") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+
+estimate_w <- grid.arrange(p_fixed,p_random)
+
+```
+
+# Plot
+```{r}
+coralpred  <-  posterior_predict(Working.1,iter=1000)
+fit_w <- ppc_dens_overlay(coralpred[1:100,], y=app_mw2$Target)
+```
+# Predict and redisual plot
+```{r}
+# newdata <- data.frame(Car = sample(unique(app_mw2$Car),size=10,replace=T), Realty = sample(unique(app_mw2$Realty), size=10, replace=T), Housing_Type = sample(unique(app_mw2$Housing_Type), size=10, replace=T), Occupation_Type =sample(unique(app_mw2$Occupation_Type), size=10, replace=T))
+
+# newdata
+
+# newpred  <-  posterior_predict(Working.1,newdata = newdata, draws = 1000)
+# pred <- mean(newpred[,1])
+# for (i in 2:10){
+#   pred <- c(pred,mean(newpred[,i]))
+# }
+newpred <-  posterior_epred(Working.1, newdata=app_mw2, draws=1000)
+pred_w <- mean(newpred[,1])
+for (i in 2:dim(newpred)[2]){
+  pred_w <- c(pred_w,mean(newpred[,i]))
+}
+
+
+red_w <- binnedplot(x = pred_w , y = residuals(Working.1),
+    xlab="Expected Values", ylab="Average residual", 
+    main="Binned residual plot of Occupation Model", 
+    cex.pts=0.8, col.pts=1, col.int="gray")
+
+```

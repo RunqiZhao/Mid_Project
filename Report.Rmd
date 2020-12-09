@@ -1,0 +1,425 @@
+---
+title: "How property and family affect people's loan application?"
+author: "Ricky"
+date: "12/7/2020"
+geometry: "left=2cm,right=2cm,top=1cm,bottom=2cm"
+output:
+  pdf_document:
+    keep_tex: yes  
+    latex_engine: xelatex
+    fig_caption: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,out.width="0.9\\linewidth",dev="png",fig.align  = 'center')
+warning = F
+message = F
+pacman::p_load(
+ggplot2,
+VIM,
+arm,
+corrplot,
+gridExtra,
+rstanarm,
+lme4,
+magrittr,
+dplyr,
+bayesplot
+)
+```
+
+```{r include=FALSE}
+appdf <- read.csv("appdf.csv", head = T)
+```
+
+```{r include=FALSE}
+# ID 1
+# Loans: 2:3, 9:11
+# Applier: 4,13
+# Family: 7,40,14,27
+# Money & Word: 5:6, 8, 12, 15, 38, 41
+app_family <- appdf[,c(2:3,7,40,14,27)]
+app_family <- na.omit(app_family)
+app_mw <- appdf[,c(2:3, 5:6, 8, 12, 15, 38, 41)]
+app_mw  <- na.omit(app_mw)
+```
+
+```{r include=FALSE}
+# app_mw
+colnames(app_mw) <- 
+  c("Target","Contract_Type","Car","Realty","Total_Income","Income_Type","Housing_Type","Organization_Type","Occupation_Type")
+
+# Housing_Type
+p_Hou <- app_mw %>% group_by(Housing_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Housing_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Housing_Type") +   ylab("Target") + 
+  ggtitle("Target of different Housing Type") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+
+# Occupation_Type
+p_Och <- ggplot(app_mw, aes(x = Occupation_Type)) + geom_bar() +
+  xlab("Occupation Type") + ylab("Application Numbers") +
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5))
+
+p_Occ <- app_mw %>% group_by(Occupation_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Occupation_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Occupation Type") +   ylab("Target") + 
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5))
+```
+
+```{r include=FALSE}
+# app_family
+colnames(app_family) <- 
+  c("Target","Contract_Type","Children_Num","Accompany","Family_Status","Family_Members")
+# both
+p_Fam <- app_family %>% group_by(Family_Status, Accompany) %>%
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Accompany,y=mean, color = Accompany),size=4) + 
+  theme_bw() + 
+  xlab("Accompany") +   ylab("Target") + 
+  ggtitle("Target under different Family Status and Accompany") + 
+  facet_wrap(~ Family_Status) +
+  theme(axis.text.x = element_text(angle = 40, hjust = 0.5, vjust = 0.5))
+```
+
+```{r include=FALSE}
+# Subset 2
+appdf2 <- read.csv("appdf2.csv", head = T)
+
+app_family2 <- appdf2[,c(2:3,7,40,14,27)]
+app_family2 <- na.omit(app_family2)
+colnames(app_family2) <- 
+  c("Target","Contract_Type","Children_Num","Accompany","Family_Status","Family_Members")
+
+app_family$Family_Status <- factor(app_family$Family_Status)
+app_family$Accompany <- factor(app_family$Accompany)
+
+
+app_mw2 <- appdf2[,c(2:3, 5:6, 8, 12, 15, 38, 41)]
+app_mw2  <- na.omit(app_mw2)
+colnames(app_mw2) <- 
+  c("Target","Contract_Type","Car","Realty","Total_Income","Income_Type","Housing_Type","Organization_Type","Occupation_Type")
+
+app_mw2$Car <- factor(app_mw2$Car)
+app_mw2$Realty <- factor(app_mw2$Realty)
+app_mw2$Housing_Type <- factor(app_mw2$Housing_Type)
+app_mw2$Occupation_Type <- factor(app_mw2$Occupation_Type)
+```
+
+```{r include=FALSE}
+# read models
+Working.1 <- readRDS("Working.1")
+
+#Draw out the model's simulated estimates for fixed and random effects
+sims <-  as.matrix(Working.1) 
+
+#Clean up the column names (just to make them pretty! You can also do this in the next step)
+for(i in 1:length(unique(app_mw2$Occupation_Type))) {
+  colnames(sims)[i+9]  <-  substr(x = colnames(sims)[i+9], start = 31, stop = nchar(colnames(sims)[i+9]) - 1)
+}
+colnames(sims)[28]  <-  "sigma"
+
+# head(sims)
+
+#Make a data frame to put in coefficients
+coefdisplay  <-  
+  data.frame(names=rep(NA,ncol(sims)),med=rep(NA,ncol(sims)),upper=rep(NA,ncol(sims)),lower=rep(NA,ncol(sims)))
+
+#Make a data frame to put in coefficients
+coefdisplay  <-  
+  data.frame(names=rep(NA,ncol(sims)),med=rep(NA,ncol(sims)),upper=rep(NA,ncol(sims)),lower=rep(NA,ncol(sims)))
+
+#Use for loops to draw out estimates and names for each variable
+for(i in 1:ncol(sims)){
+  coefdisplay$names[i]  <-  colnames(sims)[i]
+  coefdisplay$med[i]  <-  median(sims[,i])
+  coefdisplay$upper[i]  <-  median(sims[,i]) + 2*mad(sims[,i])
+  coefdisplay$lower[i]  <-  median(sims[,i]) - 2*mad(sims[,i])
+}
+p_fixedw <- ggplot(coefdisplay[1:9,]) + 
+  aes(x=names,y=med) + geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Fixed Effects") + ylab("Estimate") + xlab("Variables") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 20, hjust = 0.5, vjust = 0.5))
+
+p_randomw  <-  ggplot(coefdisplay[10:27,]) + 
+  aes(x=names,y=med) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Random Effects") + ylab("Estimate") + xlab("Groups") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5))
+
+estimate_w <- grid.arrange(p_fixedw,p_randomw)
+
+# predict and resudials plot
+newpred <-  posterior_epred(Working.1, newdata=app_mw2, draws=1000)
+pred_w <- mean(newpred[,1])
+for (i in 2:dim(newpred)[2]){
+  pred_w <- c(pred_w,mean(newpred[,i]))
+}
+
+coralpred  <-  posterior_predict(Working.1,iter=1000)
+fit_w <- ppc_dens_overlay(coralpred[1:100,], y=app_mw2$Target)
+
+```
+
+
+```{r include=FALSE}
+# stan_glm subset 2
+Family.1 <- readRDS("Family.1")
+
+#Draw out the model's simulated estimates for fixed and random effects
+sims <-  as.matrix(Family.1) 
+
+#Clean up the column names (just to make them pretty! You can also do this in the next step)
+for(i in 1:length(unique(app_family2$Accompany))) {
+  colnames(sims)[i+5]  <-  substr(x = colnames(sims)[i+5], start = 25, stop = nchar(colnames(sims)[i+5]) - 1)
+}
+colnames(sims)[13]  <-  "sigma"
+# head(sims)
+#Make a data frame to put in coefficients
+coefdisplay  <-  
+  data.frame(names=rep(NA,ncol(sims)),med=rep(NA,ncol(sims)),upper=rep(NA,ncol(sims)),lower=rep(NA,ncol(sims)))
+
+#Use for loops to draw out estimates and names for each variable
+for(i in 1:ncol(sims)){
+  coefdisplay$names[i]  <-  colnames(sims)[i]
+  coefdisplay$med[i]  <-  median(sims[,i])
+  coefdisplay$upper[i]  <-  median(sims[,i]) + 2*mad(sims[,i])
+  coefdisplay$lower[i]  <-  median(sims[,i]) - 2*mad(sims[,i])
+}
+
+p_fixedf <- ggplot(coefdisplay[1:5,]) + 
+  aes(x=names,y=med) + geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Fixed Effects") + ylab("Estimate") + xlab("Variables") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+
+p_randomf  <-  ggplot(coefdisplay[6:12,]) + 
+  aes(x=names,y=med) + 
+  geom_point() + 
+  geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
+  ggtitle("Random Effects") + ylab("Estimate") + xlab("Groups") + 
+  theme_bw() + 
+  geom_hline(aes(yintercept=0),linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+
+estimate_f <- grid.arrange(p_fixedf,p_randomf)
+
+newpred <-  posterior_epred(Family.1, newdata=app_family2, draws=1000)
+pred_f <- mean(newpred[,1])
+for (i in 2:dim(newpred)[2]){
+  pred_f <- c(pred_w,mean(newpred[,i]))
+}
+
+coralpred  <-  posterior_predict(Family.1,iter=1000)
+fit_f <- ppc_dens_overlay(coralpred[1:100,], y=app_family2$Target)
+
+```
+# 1.Abstract
+
+My project used the dataset from Kaggle to explore how property and working occupations status will affect the evaluation of loan risk, also family status to the loan risk. I picked variables by the descriptions and divided them into 4 parts for the exploratory data analysis and then build multilevel models for family and property sections.
+
+# 2.Introduction
+
+When people going to apply for loans, we need to submit all kinds of documents to provide that we have the ability to pay the money back later. These documents not only include the properties people already have, but also the information of the income source - working occupation. People with different occupations may have different risk evaluate results about their applications.
+
+During my exploratory data analysis, a variable comes to my notice. It is interesting to know that except all kinds of documents; the loan companies also record people's accompany situation when they submit their applications. So there comes the second question for me: will people's family situation affect their applications?
+
+The dataset comes from Kaggle:  [https://www.kaggle.com/c/home-credit-default-risk/data](https://www.kaggle.com/c/home-credit-default-risk/data). This dataset has more than 300,000 application records, and 122 variables in its train file. I took this file as my raw data.
+
+# 3.Method
+
+## 1) Variables selection and Missing Values
+
+At the very beginning, I looked at the variables’ descriptions, picked up the factors about:  
+  - **Loans**:      Target, Contract Type, Credit Amount, Annuity amount, Price of goods  
+  - **Appliers**:   Gender, Education  
+  - **Family**:     Accompany, Family Status, Number of children, Number of family members  
+  - **Property and work**:Car, Realty, Total Income, Income Type, Housing Type, Organization Type, Occupation Type  
+ 
+All variables except Occupation Type have small number of missing values (less than 0.5%), so I deleted them. But the occupation Type has a 1/3 missing values. I still want to keep this variable, to make full use of the information from the data, I decided to delete the rows with missing value under four subsets instead of the whole dataset. 
+
+## 2) Exploratory data analysis
+
+First look at the application numbers of and the average risk grades of different occupation types(Figure 1). I noticed that there is difference between different working tpyes, and for the ***Low Skill Labors*** has lower application numbers but has the highest average grade.
+```{r echo=FALSE,fig.show='hold',out.height='80%',out.width = '45%', fig.align = 'center',fig.cap = "Application Numbers and Target under different Occupation Type"}
+p_Och
+p_Occ
+```
+
+<br> <br> <br>
+
+Then come to take a look at the risk grades of different Family Status and Accompany Situations. (Figure 2)
+```{r echo=FALSE, out.height='90%',out.width = '80%',fig.align = 'center',fig.cap = "Target of different Family Status and Accompany"}
+p_Fam
+```
+
+## 3) Fitting models
+
+In my models, ***Target*** a binomial response variable, 1 indicates that the loan company treat this application as a risk one, while 0 is not risk.
+
+With a binomial response variable, and with category predictors, I took logistic mixed-effect model for this data.
+
+For property part, ***Car***, ***Realty***, ***Housing_Type*** are the fixed effect factors indicate the property situation of the applier, and ***Occupation_Type*** is the random effect factor to show appliers' occupations.
+
+The model can be write as:  
+
+$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{Car} * Car + \beta^{Realty} * Realty + \beta^{Housing Type} * Housing Type)$, for $i = 1,...,n$  
+
+$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{OccupationType})$,   for $j = 1,...,18$  
+
+For family part, ***Family_Status*** is the fixed effect factors and ***Accompany*** is the random effect factor to show people's accompany situation when they submit their application.  
+
+The model can be write as:  
+
+$Pr(Target_{i} = 1) = logit^{-1}(\alpha_{j[i]} + \beta^{FamilyStatus} * FamilyStatus)$, for $i = 1,...,n$  
+
+$\alpha_j\sim\ \mathrm{N}(\mu_\alpha, \sigma^2_{Accompany})$,  for $j = 1,...,7$  
+
+## 4) Model Checking  
+To fit with *stan_glmer*, I took a subset of the whole dataset, sampled for 10,000 recordings randomly. To check the fitted models, plot the residuals for these two models(Figure 3).  
+```{r echo=FALSE, fig.height= 3,fig.align = 'center',fig.cap = "Binned Residual Plots"}
+par(mfrow=c(1,2))
+
+binnedplot(x = pred_w , y = residuals(Working.1),
+    xlab="Expected Values", ylab="Average residual", 
+    main="Occupation Model", 
+    cex.pts=0.8, col.pts=1, col.int="gray")
+
+binnedplot(x = pred_f , y = residuals(Family.1),
+    xlab="Expected Values", ylab="Average residual", 
+    main="Family Model", 
+    cex.pts=0.8, col.pts=1, col.int="gray")
+```
+
+They looks fit well. Almost all of the points are in the line.
+ 
+# 4. Results  
+First, look at the estimate results of Occupations models(Figure 4).
+```{r echo=FALSE,fig.align = 'center',fig.cap = "Estimates for Occupations Model"}
+grid.arrange(p_fixedw,p_randomw)
+```
+**Car and Realty**: The estimated coefficients for people with no realty and no car is 0.3, gives a rough estimate that these guys are 7.5% more likely to be marked as risk applier than people with both of realty and car, for the people live in the same housing type. And people with no car but own realty have a 5% more risk. It is interesting to find that people with car but without realty has 2.5% less likely to be evaluated as risk!  
+
+**Housing Types**: All the estimates are compared with Co-op apartment, this tells that people live in all other housing types are more likely to be treated as risk appliers, under the same car and realty condition. Rented apartment is the most risky type, has 52.5% higher possible, followed by people live with parents, 47.5%, and house or apartment, 35%, then municipal apartment 32.5%.  
+
+After controlling for car, realty and housing type, we can look at the effects of different occupations.  
+Form the estimate results, we can find that drivers and Low skill laborers are the occupations with highest risk, this looks consist to the plot of target grade. While Cleaning staff, Private service staff and Secretaries are the lower risk people.
+
+Then look at the estimate results of family models(Figure 5).  
+```{r echo=FALSE,fig.align = 'center',fig.cap = "Estimates for Family Model"}
+grid.arrange(p_fixedf,p_randomf)
+```
+**Family Status**: From the estimate results, we can find that civil marriages have the same risk possible with single or not married people. Compared with them, people who are married get 10% less likely to be treated as risk, separated people have 5% less possible and widow have 27.5%.  
+
+For the accompany, we can find that there is no obvious difference between accompanies.
+
+# 5. Discussion
+
+First, from the results, *the occupations showed different effects on their risk evaluation, while accompany does not.* Also, we can guess that loan company is *more welcome Cleaning staff, Private service staff and Secretaries who live in co-op apartment, own their car. Also company may more open to married people and widow. *
+
+With the exploration analysis, we can find the **Low skill laborers** have highest average grade, the drivers have the second. This is consist to our model results. But the lowest average grade, the **Accountants**, does not show a competitive strength in the model. Also, from the plot of target under different Family_Status and Accompany, there shows difference between groups, but the model does not give a variety.  
+
+One of the reasons is that the model is fitted by a subset, so there are some difference. To look at this, I may try different sample seed for the subset in the future.  
+If the models show the similar results, we can dig into some specific occupation types to look into the reasons.
+
+For the family results, one question for me is the difference between civil marriages and married. They have meaningful difference in the results, but to my understanding, they are all married. There may be some difference between these two kinds of marriage, and I can go for more materials for the reason. 
+
+Another thing to notice is that widow are more likely to be treated as low risk, so there is a rank as $Window < Married < Separated < civil marriage = Single/Not Married$. So I may give a guess that this result may be caused by the age and savings. Generally, single people have a smaller average age while they do not have good saving habit, while married people usually have stable income and save more for their family. But all these guesses need to be proved by other analysis.  
+
+# Appendix
+
+## 1. EDA Plots not included in the report
+
+```{r include=FALSE}
+app_loan <- appdf[,c(2:3,9:11)]
+app_loan <- na.omit(app_loan)
+app_applier <- appdf[,c(2:3,4,13)]
+app_applier <- na.omit(app_applier)
+```
+
+### 1) About Loan
+```{r echo=FALSE, fig.height= 3.5,fig.align = 'center',fig.cap = "Applications of different Contract Type"}
+# app_loan
+colnames(app_loan) <- c("Target","Contract_Type","Credit","Annuity","Price")
+
+# Target_hist
+# ggplot(app_loan, aes(x = Target)) + geom_bar()
+
+ggplot(app_loan, aes(x = Target, fill = Contract_Type)) + geom_bar() + 
+  xlab("Count of Applications") +   ylab("Target")
+```
+
+### 2) About Family
+
+```{r echo=FALSE, fig.align='center', fig.cap= "Target of different Accompany", fig.height=3.5, message=FALSE, warning=FALSE}
+# Accompany
+p_Acc <- app_family %>% group_by(Accompany) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Accompany,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Accompany") +   ylab("Target") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_Acc
+```
+
+```{r echo=FALSE, fig.height= 3.5,fig.align = 'center',fig.cap = "Target of different Family Status", message=FALSE, warning=FALSE}
+# Family_Status
+p_FamS <- app_family %>% group_by(Family_Status) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Family_Status,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Family_Status") +   ylab("Target") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_FamS
+```
+
+### 3) About House Type
+
+```{r echo=FALSE, fig.height= 3.5,fig.align = 'center',fig.cap = "Target of different Housing Type", message=FALSE, warning=FALSE}
+# Housing_Type
+p_Hou <- app_mw %>% group_by(Housing_Type) %>% 
+  summarize(mean=mean(Target)) %>% ungroup() %>%
+  ggplot() + 
+  geom_point(aes(x=Housing_Type,y=mean),size=4) + 
+  theme_bw() + 
+  xlab("Housing_Type") +   ylab("Target") + 
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+p_Hou
+```
+
+<br><br><br><br><br><br>
+
+## 2. Modeling Plots and results not included in the report
+
+### 1) Plot to comapre the distribution of data and simulated result(Occupations Model)
+
+```{r echo=FALSE, fig.cap = "Fitted Polt for Occupations Model"}
+coralpred  <-  posterior_predict(Working.1,iter=1000)
+fit_w <- ppc_dens_overlay(coralpred[1:100,], y=app_mw2$Target)
+fit_w
+```
+
+### 2) Plot to comapre the distribution of data and simulated result(Family Model)
+
+```{r echo=FALSE, fig.cap = "Fitted Polt for Family Model"}
+coralpred  <-  posterior_predict(Family.1,iter=1000)
+fit_f <- ppc_dens_overlay(coralpred[1:100,], y=app_family2$Target)
+fit_f
+```
