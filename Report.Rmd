@@ -53,24 +53,24 @@ colnames(app_mw) <-
 p_Hou <- app_mw %>% group_by(Housing_Type) %>% 
   summarize(mean=mean(Target)) %>% ungroup() %>%
   ggplot() + 
-  geom_point(aes(x=Housing_Type,y=mean),size=4) + 
+  geom_point(aes(x=Housing_Type,y=mean, color = Housing_Type, alpha = 0.5),size=4) + 
   theme_bw() + 
   xlab("Housing_Type") +   ylab("Target") + 
   ggtitle("Target of different Housing Type") + 
-  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5), legend.position='none')
 
 # Occupation_Type
-p_Och <- ggplot(app_mw, aes(x = Occupation_Type)) + geom_bar() +
+p_Och <- ggplot(app_mw, aes(x = Occupation_Type, fill = Occupation_Type, alpha = 0.5 )) + geom_bar() +
   xlab("Occupation Type") + ylab("Application Numbers") +
-  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5), legend.position='none')
 
 p_Occ <- app_mw %>% group_by(Occupation_Type) %>% 
   summarize(mean=mean(Target)) %>% ungroup() %>%
   ggplot() + 
-  geom_point(aes(x=Occupation_Type,y=mean),size=4) + 
+  geom_point(aes(x=Occupation_Type,y=mean, color = Occupation_Type, alpha = 0.5),size=4) + 
   theme_bw() + 
   xlab("Occupation Type") +   ylab("Target") + 
-  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5), legend.position='none')
 ```
 
 ```{r include=FALSE}
@@ -144,21 +144,21 @@ for(i in 1:ncol(sims)){
   coefdisplay$lower[i]  <-  median(sims[,i]) - 2*mad(sims[,i])
 }
 p_fixedw <- ggplot(coefdisplay[1:9,]) + 
-  aes(x=names,y=med) + geom_point() + 
+  aes(x=names,y=med, color = names, alpha = 0.5) + geom_point() + 
   geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
   ggtitle("Fixed Effects") + ylab("Estimate") + xlab("Variables") + 
   theme_bw() + 
   geom_hline(aes(yintercept=0),linetype="dashed") +
-  theme(axis.text.x = element_text(angle = 20, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 20, hjust = 0.5, vjust = 0.5), legend.position='none')
 
 p_randomw  <-  ggplot(coefdisplay[10:27,]) + 
-  aes(x=names,y=med) + 
+  aes(x=names,y=med, color = names, alpha = 0.5) + 
   geom_point() + 
   geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
   ggtitle("Random Effects") + ylab("Estimate") + xlab("Groups") + 
   theme_bw() + 
   geom_hline(aes(yintercept=0),linetype="dashed") +
-  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 25, hjust = 0.5, vjust = 0.5), legend.position='none')
 
 estimate_w <- grid.arrange(p_fixedw,p_randomw)
 
@@ -201,21 +201,21 @@ for(i in 1:ncol(sims)){
 }
 
 p_fixedf <- ggplot(coefdisplay[1:5,]) + 
-  aes(x=names,y=med) + geom_point() + 
+  aes(x=names,y=med, color = names, alpha = 0.5) + geom_point() + 
   geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
   ggtitle("Fixed Effects") + ylab("Estimate") + xlab("Variables") + 
   theme_bw() + 
   geom_hline(aes(yintercept=0),linetype="dashed") +
-  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5), legend.position='none')
 
 p_randomf  <-  ggplot(coefdisplay[6:12,]) + 
-  aes(x=names,y=med) + 
+  aes(x=names,y=med, color = names, alpha = 0.5) + 
   geom_point() + 
   geom_errorbar(aes(ymin=lower,ymax=upper),width=0) + 
   ggtitle("Random Effects") + ylab("Estimate") + xlab("Groups") + 
   theme_bw() + 
   geom_hline(aes(yintercept=0),linetype="dashed") +
-  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 10, hjust = 0.5, vjust = 0.5), legend.position='none')
 
 estimate_f <- grid.arrange(p_fixedf,p_randomf)
 
@@ -262,8 +262,8 @@ p_Occ
 ```
 
 Then comes to take a look at the risk grades of different Family Status and Accompany Situations. (Figure 2)
-```{r echo=FALSE, out.width = '90%',fig.align = 'center',fig.cap = "Target of different Family Status and Accompany"}
-p_Fam
+```{r echo=FALSE,fig.align = 'center',fig.cap = "Target of different Family Status and Accompany"}
+p_Fam + theme(legend.position="bottom")
 ```
 
 ## 3) Fitting models
@@ -369,10 +369,10 @@ ggplot(app_loan, aes(x = Target, fill = Contract_Type)) + geom_bar() +
 p_Acc <- app_family %>% group_by(Accompany) %>% 
   summarize(mean=mean(Target)) %>% ungroup() %>%
   ggplot() + 
-  geom_point(aes(x=Accompany,y=mean),size=4) + 
+  geom_point(aes(x=Accompany,y=mean, color = Accompany, alpha = 0.5),size=4) + 
   theme_bw() + 
   xlab("Accompany") +   ylab("Target") + 
-  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5), legend.position='none')
 p_Acc
 ```
 
@@ -381,10 +381,10 @@ p_Acc
 p_FamS <- app_family %>% group_by(Family_Status) %>% 
   summarize(mean=mean(Target)) %>% ungroup() %>%
   ggplot() + 
-  geom_point(aes(x=Family_Status,y=mean),size=4) + 
+  geom_point(aes(x=Family_Status,y=mean, color = Family_Status, alpha = 0.5),size=4) + 
   theme_bw() + 
   xlab("Family_Status") +   ylab("Target") + 
-  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
+  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5), legend.position='none')
 p_FamS
 ```
 
@@ -392,13 +392,6 @@ p_FamS
 
 ```{r echo=FALSE, fig.height= 3.5,fig.align = 'center',fig.cap = "Target of different Housing Type", message=FALSE, warning=FALSE}
 # Housing_Type
-p_Hou <- app_mw %>% group_by(Housing_Type) %>% 
-  summarize(mean=mean(Target)) %>% ungroup() %>%
-  ggplot() + 
-  geom_point(aes(x=Housing_Type,y=mean),size=4) + 
-  theme_bw() + 
-  xlab("Housing_Type") +   ylab("Target") + 
-  theme(axis.text.x = element_text(angle = 15, hjust = 0.5, vjust = 0.5))
 p_Hou
 ```
 
